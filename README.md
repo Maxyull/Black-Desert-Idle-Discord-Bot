@@ -8,7 +8,6 @@ nombre de joueurs en ligne, liaison de compte Discord ↔ compte du jeu, signale
 - **Annonces automatiques** — poste les notes de version FR et EN (chacune dans son propre salon) à chaque nouvelle version déployée (détectée en surveillant `index.html`).
 - **`/classement [categorie]`** — top 10 silver ou gearscore.
 - **`/joueurs-en-ligne`** — nombre de joueurs actuellement connectés (invités inclus).
-- **`/lier <code>`** — lie le compte Discord au compte Velia Idle via un code généré dans le panneau "Mon compte" du jeu.
 - **`/bug <description>`** — poste un signalement de bug dans un salon dédié.
 - **`/suggestion <texte>`** — crée un post dans un **salon Forum** dédié, avec vote par réaction (👍/👎) et des boutons "✅ Accepter"/"❌ Refuser" réservés au staff (permission Discord "Gérer le serveur") qui appliquent automatiquement le tag correspondant (🗳️ En attente / ✅ Accepté / ❌ Refusé, créés automatiquement si absents).
 - **Relais de traduction** — tout message posté dans le salon FR configuré est automatiquement retranscrit en anglais dans le salon EN configuré.
