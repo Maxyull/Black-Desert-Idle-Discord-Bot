@@ -7,14 +7,23 @@ const { translateToEnglish } = require('./lib/translate');
 const { ensureSuggestionTags } = require('./lib/suggestionTags');
 const { startKeepAliveServer } = require('./lib/keepAlive');
 const { initLogger, logInfo, logError } = require('./lib/logger');
+const { sendAuditEmbed } = require('./lib/auditLog');
 
 startKeepAliveServer();
 
-// GuildMessages + MessageContent sont nécessaires pour lire le texte des messages à
-// traduire. MessageContent est un "Privileged Intent" : à activer manuellement dans
-// Discord Developer Portal > ton appli > Bot > "Message Content Intent".
+// MessageContent : nécessaire pour lire le texte des messages (traduction, journal des
+// messages modifiés/supprimés) — "Privileged Intent" à activer manuellement dans Discord
+// Developer Portal > ton appli > Bot > "Message Content Intent".
+// GuildMembers : nécessaire pour recevoir les arrivées/départs de membres (journal) — autre
+// "Privileged Intent" à activer au même endroit ("Server Members Intent").
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildModeration,
+  ],
 });
 client.commands = new Collection();
 initLogger(client);
@@ -108,6 +117,70 @@ client.on(Events.ThreadCreate, async thread => {
     await starter.react('👎');
     await starter.react('🤷');
   } catch (e) { logError('réaction auto suggestion (forum communautaire):', e.message); }
+});
+
+// ---------- journal du serveur : arrivées/départs/bannissements + messages modifiés/
+// supprimés, tout dans DISCORD_LOGS_CHANNEL_ID (en plus des logs internes du bot) ----------
+client.on(Events.GuildMemberAdd, member => {
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL() })
+    .setDescription(`📥 **${member.user.tag}** a rejoint le serveur`)
+    .addFields({ name: 'Compte créé', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>` })
+    .setColor(0x8fc98a)
+    .setTimestamp();
+  sendAuditEmbed(client, embed);
+});
+
+client.on(Events.GuildMemberRemove, member => {
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL() })
+    .setDescription(`📤 **${member.user.tag}** a quitté (ou a été retiré du) le serveur`)
+    .setColor(0xc05545)
+    .setTimestamp();
+  sendAuditEmbed(client, embed);
+});
+
+client.on(Events.GuildBanAdd, ban => {
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: ban.user.tag, iconURL: ban.user.displayAvatarURL() })
+    .setDescription(`🔨 **${ban.user.tag}** a été banni du serveur`)
+    .setColor(0xc05545)
+    .setTimestamp();
+  sendAuditEmbed(client, embed);
+});
+
+client.on(Events.MessageUpdate, (oldMessage, newMessage) => {
+  if (newMessage.author?.bot) return;
+  if (oldMessage.content === newMessage.content) return; // ex: mise à jour d'un embed sans texte modifié
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: newMessage.author?.tag || '?', iconURL: newMessage.author?.displayAvatarURL() })
+    .setDescription(`✏️ Message modifié dans <#${newMessage.channel.id}> — [aller au message](${newMessage.url})`)
+    .addFields(
+      { name: 'Avant', value: (oldMessage.content || '*(vide ou pas en cache)*').slice(0, 1000) },
+      { name: 'Après', value: (newMessage.content || '*(vide)*').slice(0, 1000) },
+    )
+    .setColor(0x9cc9e8)
+    .setTimestamp();
+  sendAuditEmbed(client, embed);
+});
+
+client.on(Events.MessageDelete, message => {
+  if (message.author?.bot) return;
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: message.author?.tag || '?', iconURL: message.author?.displayAvatarURL() })
+    .setDescription(`🗑️ Message supprimé dans <#${message.channel.id}>`)
+    .addFields({ name: 'Contenu', value: (message.content || '*(vide ou pas en cache)*').slice(0, 1000) })
+    .setColor(0xc05545)
+    .setTimestamp();
+  sendAuditEmbed(client, embed);
+});
+
+client.on(Events.MessageBulkDelete, (messages, channel) => {
+  const embed = new EmbedBuilder()
+    .setDescription(`🗑️ ${messages.size} messages supprimés en masse dans <#${channel.id}>`)
+    .setColor(0xc05545)
+    .setTimestamp();
+  sendAuditEmbed(client, embed);
 });
 
 // ---------- honeypot anti-spam/raid : un salon piège que personne de légitime ne devrait
