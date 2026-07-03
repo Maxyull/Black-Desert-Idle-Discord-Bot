@@ -85,17 +85,20 @@ async function handleSuggestionButton(interaction) {
 }
 
 // ---------- relais de traduction FR -> EN entre deux salons ----------
+if (!process.env.DISCORD_FR_CHANNEL_ID || !process.env.DISCORD_EN_CHANNEL_ID) {
+  console.error('Relais de traduction désactivé : DISCORD_FR_CHANNEL_ID et/ou DISCORD_EN_CHANNEL_ID non configurées — voir .env.example');
+}
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return; // évite les boucles (dont les propres messages du bot)
+  if (!process.env.DISCORD_FR_CHANNEL_ID || !process.env.DISCORD_EN_CHANNEL_ID) return;
   if (message.channel.id !== process.env.DISCORD_FR_CHANNEL_ID) return;
-  if (!process.env.DISCORD_EN_CHANNEL_ID) return;
   if (!message.content || !message.content.trim()) return;
 
   const translated = await translateToEnglish(message.content);
-  if (!translated) return;
+  if (!translated) { console.error('Relais de traduction : échec de la traduction (message ignoré)'); return; }
 
   const targetChannel = await client.channels.fetch(process.env.DISCORD_EN_CHANNEL_ID).catch(() => null);
-  if (!targetChannel) return;
+  if (!targetChannel) { console.error('Relais de traduction : salon EN introuvable (DISCORD_EN_CHANNEL_ID incorrect ?)'); return; }
 
   const embed = new EmbedBuilder()
     .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL() })
@@ -144,6 +147,10 @@ async function postPatchNote(channelId, versionName, lines) {
 }
 
 async function checkForNewVersion() {
+  if (!process.env.GAME_URL) {
+    console.error('checkForNewVersion: variable GAME_URL non configurée — voir .env.example');
+    return;
+  }
   try {
     const res = await fetch(process.env.GAME_URL + (process.env.GAME_URL.includes('?') ? '&' : '?') + '_=' + Date.now());
     const text = await res.text();
