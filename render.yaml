@@ -30,3 +30,5 @@ services:
         sync: false
       - key: GAME_URL
         value: https://maxyull.github.io/black-desert-idle/
+      - key: INTERNAL_API_SECRET
+        sync: false

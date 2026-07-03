@@ -13,6 +13,7 @@ nombre de joueurs en ligne, liaison de compte Discord ↔ compte du jeu, signale
 - **`/suggestion <texte>`** — crée un post dans un **salon Forum** dédié, avec vote par réaction (👍/👎) et des boutons "✅ Accepter"/"❌ Refuser" réservés au staff (permission Discord "Gérer le serveur") qui appliquent automatiquement le tag correspondant (🗳️ En attente / ✅ Accepté / ❌ Refusé, créés automatiquement si absents).
 - **Relais de traduction** — tout message posté dans le salon FR configuré est automatiquement retranscrit en anglais dans le salon EN configuré.
 - **Statut du bot** — affiche en continu "X joueur(s) en ligne".
+- **`POST /join-guild`** — endpoint interne appelé par le jeu juste après une connexion "Se connecter avec Discord" : ajoute automatiquement le joueur au serveur Discord via son token OAuth (scope `guilds.join`).
 
 ## 1. Créer l'application Discord
 
@@ -21,7 +22,7 @@ nombre de joueurs en ligne, liaison de compte Discord ↔ compte du jeu, signale
 3. Toujours dans **Bot**, décoche "Public Bot" si tu veux garder le contrôle de qui l'ajoute.
 4. Toujours dans **Bot**, active **"Message Content Intent"** (nécessaire pour le relais de traduction — sans ça le bot reçoit des messages vides).
 5. Onglet **General Information** → copie l'**Application ID** (`DISCORD_CLIENT_ID`).
-6. Onglet **OAuth2 > URL Generator** → coche `bot` + `applications.commands`, permissions minimales (Send Messages, Send Messages in Threads, Create Public Threads, Embed Links, Add Reactions, Manage Threads, **Manage Channels** — nécessaire pour créer les tags du forum) → ouvre l'URL générée pour ajouter le bot à ton serveur.
+6. Onglet **OAuth2 > URL Generator** → coche `bot` + `applications.commands`, permissions minimales (Send Messages, Send Messages in Threads, Create Public Threads, Embed Links, Add Reactions, Manage Threads, **Manage Channels** — tags du forum, **Create Invite** — requis par Discord pour `PUT /guilds/{id}/members/{id}`, l'ajout auto au serveur) → ouvre l'URL générée pour ajouter le bot à ton serveur.
 7. En mode développeur Discord (Paramètres > Avancés > Mode développeur), clic droit sur ton serveur → "Copier l'identifiant" (`DISCORD_GUILD_ID`, optionnel mais recommandé pour un déploiement instantané des commandes).
 8. Crée (ou réutilise) un salon **bugs** classique (`DISCORD_BUG_CHANNEL_ID`) et un salon **suggestions** de type **Forum** (`DISCORD_SUGGESTIONS_CHANNEL_ID` — le bot crée lui-même les 3 tags "🗳️ En attente"/"✅ Accepté"/"❌ Refusé" au premier `/suggestion` s'ils n'existent pas encore). Les salons pour les annonces de version (FR/EN) et le relais de traduction (FR/EN) sont déjà connus et pré-remplis dans `.env.example`.
 
@@ -62,6 +63,35 @@ Ce repo inclut un `render.yaml` (Blueprint) qui configure tout automatiquement.
 **⚠️ Limite du plan gratuit Render** : un "Web Service" gratuit se met en veille après ~15 min sans requête HTTP entrante (le bot lui-même reste connecté à Discord tant qu'il tourne, mais Render peut arrêter le service faute de trafic web). Ce repo inclut un petit serveur HTTP de "santé" (`lib/keepAlive.js`) pour satisfaire l'exigence de Render, mais ça ne l'empêche pas de se mettre en veille par inactivité. Pour un bot vraiment 24/7 sans coupure :
 - configure un ping externe gratuit (ex: [UptimeRobot](https://uptimerobot.com)) toutes les 5-10 min sur l'URL publique du service Render, ou
 - passe sur un plan payant Render (pas de mise en veille).
+
+## Connexion Discord + ajout auto au serveur (côté jeu)
+
+Le jeu (repo `black-desert-idle`) propose "🎮 Se connecter avec Discord" (connexion) et
+"🎮 Connecter Discord" (liaison d'un compte email existant, panneau "Mon compte"). Pour
+que ça fonctionne, en plus de ce bot :
+
+1. **Discord Developer Portal** → ta même application → onglet **OAuth2** → section
+   **Redirects** → ajoute : `https://<ton-projet>.supabase.co/auth/v1/callback`
+   (remplace `<ton-projet>` par l'ID de ton projet Supabase, visible dans l'URL de ton
+   dashboard ou dans `SUPABASE_URL`).
+2. Toujours dans **OAuth2**, note le **Client Secret** (bouton "Reset Secret" si tu ne
+   l'as pas encore généré).
+3. **Supabase Dashboard** → Authentication → Providers → **Discord** → active-le, colle le
+   **Client ID** (Application ID) et le **Client Secret** de l'étape 2.
+4. **Supabase Dashboard** → Authentication → Settings → active **"Allow manual linking"**
+   (nécessaire pour que "Connecter Discord" fonctionne sur un compte email déjà existant,
+   sans ça seule la connexion directe via Discord marche).
+5. Exécute `supabase-pseudo-schema.sql` (vit dans le repo du jeu, `black-desert-idle`) dans
+   le même projet Supabase.
+6. Dans `index.html` (repo du jeu), remplace `BOT_API_URL` par l'URL publique de ce
+   service Render, et `BOT_API_SECRET` par une valeur aléatoire de ton choix.
+7. Sur Render (ou en local), configure `INTERNAL_API_SECRET` avec **exactement la même
+   valeur** que `BOT_API_SECRET` côté jeu.
+
+⚠️ `BOT_API_SECRET` n'est **pas un vrai secret** puisqu'il vit dans un fichier public sur
+GitHub Pages — ce n'est qu'un filtre anti-spam basique sur l'endpoint `/join-guild`. La
+vraie sécurité vient de Discord : un `access_token` invalide, expiré, ou sans le scope
+`guilds.join` est rejeté par l'API Discord elle-même, quelle que soit la valeur du secret.
 
 ## Notes
 
