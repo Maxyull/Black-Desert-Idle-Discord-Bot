@@ -1,0 +1,17 @@
+{
+  "name": "velia-idle-discord-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord pour Velia Idle — classement, joueurs en ligne, liaison de compte, annonces de version, signalement de bug.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "deploy-commands": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5",
+    "google-translate-api-x": "^10.7.1"
+  }
+}
