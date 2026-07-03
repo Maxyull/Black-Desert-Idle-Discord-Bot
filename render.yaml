@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: velia-idle-discord-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: DISCORD_PATCHNOTE_FR_CHANNEL_ID
+        value: "1515434369224016012"
+      - key: DISCORD_PATCHNOTE_EN_CHANNEL_ID
+        value: "1515439814122537111"
+      - key: DISCORD_BUG_CHANNEL_ID
+        sync: false
+      - key: DISCORD_SUGGESTIONS_CHANNEL_ID
+        sync: false
+      - key: DISCORD_FR_CHANNEL_ID
+        value: "1515449365135888505"
+      - key: DISCORD_EN_CHANNEL_ID
+        value: "1522411682343813241"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GAME_URL
+        value: https://maxyull.github.io/black-desert-idle/

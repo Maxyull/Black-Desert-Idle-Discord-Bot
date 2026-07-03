@@ -5,6 +5,9 @@ const { Client, GatewayIntentBits, Collection, Events, EmbedBuilder, PermissionF
 const { supabase } = require('./lib/supabase');
 const { translateToEnglish } = require('./lib/translate');
 const { ensureSuggestionTags } = require('./lib/suggestionTags');
+const { startKeepAliveServer } = require('./lib/keepAlive');
+
+startKeepAliveServer();
 
 // GuildMessages + MessageContent sont nécessaires pour lire le texte des messages à
 // traduire. MessageContent est un "Privileged Intent" : à activer manuellement dans
