@@ -6,6 +6,7 @@ const { supabase } = require('./lib/supabase');
 const { translateToEnglish } = require('./lib/translate');
 const { ensureSuggestionTags } = require('./lib/suggestionTags');
 const { startKeepAliveServer } = require('./lib/keepAlive');
+const { initLogger, logInfo, logError } = require('./lib/logger');
 
 startKeepAliveServer();
 
@@ -16,6 +17,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 client.commands = new Collection();
+initLogger(client);
 
 const commandsPath = path.join(__dirname, 'commands');
 for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) {
@@ -24,7 +26,7 @@ for (const file of fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'))) 
 }
 
 client.once(Events.ClientReady, c => {
-  console.log(`Bot connecté en tant que ${c.user.tag}`);
+  logInfo(`Bot connecté en tant que ${c.user.tag}`);
   updatePresence();
   checkForNewVersion();
   setInterval(updatePresence, 60 * 1000);
@@ -38,7 +40,7 @@ client.on(Events.InteractionCreate, async interaction => {
     try {
       await command.execute(interaction);
     } catch (err) {
-      console.error(`Erreur dans la commande /${interaction.commandName} :`, err);
+      logError(`Erreur dans la commande /${interaction.commandName} :`, err);
       const payload = { content: 'Une erreur est survenue en exécutant cette commande.', ephemeral: true };
       if (interaction.deferred || interaction.replied) await interaction.editReply(payload);
       else await interaction.reply(payload);
@@ -80,7 +82,7 @@ async function handleSuggestionButton(interaction) {
       const newTagId = action === 'accept' ? acceptedId : rejectedId;
       const kept = thread.appliedTags.filter(id => id !== pendingId && id !== acceptedId && id !== rejectedId);
       await thread.setAppliedTags(newTagId ? [...kept, newTagId] : kept);
-    } catch (e) { console.error('maj tag suggestion:', e.message); }
+    } catch (e) { logError('maj tag suggestion:', e.message); }
   }
 }
 
@@ -105,12 +107,33 @@ client.on(Events.ThreadCreate, async thread => {
     await starter.react('👍');
     await starter.react('👎');
     await starter.react('🤷');
-  } catch (e) { console.error('réaction auto suggestion (forum communautaire):', e.message); }
+  } catch (e) { logError('réaction auto suggestion (forum communautaire):', e.message); }
+});
+
+// ---------- honeypot anti-spam/raid : un salon piège que personne de légitime ne devrait
+// utiliser (idéalement masqué du @everyone normal, visible seulement par un rôle par défaut
+// trop permissif ou un bot qui poste partout) — quiconque y écrit est expulsé du serveur ----------
+if (!process.env.DISCORD_HONEYPOT_CHANNEL_ID) {
+  logError('Honeypot désactivé : DISCORD_HONEYPOT_CHANNEL_ID non configurée — voir .env.example');
+}
+client.on(Events.MessageCreate, async message => {
+  if (!process.env.DISCORD_HONEYPOT_CHANNEL_ID) return;
+  if (message.channel.id !== process.env.DISCORD_HONEYPOT_CHANNEL_ID) return;
+  if (message.author.bot || !message.member) return;
+  try {
+    await message.delete().catch(() => {});
+    if (!message.member.kickable) {
+      logError(`Honeypot déclenché par ${message.author.tag}, mais impossible à expulser (rôle trop élevé ou permission manquante).`);
+      return;
+    }
+    await message.member.kick('Honeypot anti-spam/raid déclenché');
+    logInfo(`Honeypot : ${message.author.tag} (${message.author.id}) expulsé pour avoir écrit dans le salon piège.`);
+  } catch (e) { logError('honeypot:', e.message); }
 });
 
 // ---------- relais de traduction FR -> EN entre deux salons ----------
 if (!process.env.DISCORD_FR_CHANNEL_ID || !process.env.DISCORD_EN_CHANNEL_ID) {
-  console.error('Relais de traduction désactivé : DISCORD_FR_CHANNEL_ID et/ou DISCORD_EN_CHANNEL_ID non configurées — voir .env.example');
+  logError('Relais de traduction désactivé : DISCORD_FR_CHANNEL_ID et/ou DISCORD_EN_CHANNEL_ID non configurées — voir .env.example');
 }
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return; // évite les boucles (dont les propres messages du bot)
@@ -119,10 +142,10 @@ client.on(Events.MessageCreate, async message => {
   if (!message.content || !message.content.trim()) return;
 
   const translated = await translateToEnglish(message.content);
-  if (!translated) { console.error('Relais de traduction : échec de la traduction (message ignoré)'); return; }
+  if (!translated) { logError('Relais de traduction : échec de la traduction (message ignoré)'); return; }
 
   const targetChannel = await client.channels.fetch(process.env.DISCORD_EN_CHANNEL_ID).catch(() => null);
-  if (!targetChannel) { console.error('Relais de traduction : salon EN introuvable (DISCORD_EN_CHANNEL_ID incorrect ?)'); return; }
+  if (!targetChannel) { logError('Relais de traduction : salon EN introuvable (DISCORD_EN_CHANNEL_ID incorrect ?)'); return; }
 
   // note : un footer d'embed Discord ne peut pas contenir de lien cliquable — le lien
   // direct vers le message d'origine est donc mis en description (Discord l'auto-affiche
@@ -134,7 +157,7 @@ client.on(Events.MessageCreate, async message => {
     .setColor(0x9cc9e8)
     .setTimestamp(message.createdAt);
 
-  await targetChannel.send({ embeds: [embed] }).catch(e => console.error('relais traduction:', e.message));
+  await targetChannel.send({ embeds: [embed] }).catch(e => logError('relais traduction:', e.message));
 });
 
 // ---------- statut du bot = nombre de joueurs en ligne ----------
@@ -143,7 +166,7 @@ async function updatePresence() {
     const { data, error } = await supabase.rpc('get_online_counts', { p_window_seconds: 90 });
     if (error || !data || !data[0]) return;
     client.user.setActivity(`${data[0].total} joueur(s) en ligne`, { type: 3 }); // 3 = Watching
-  } catch (e) { console.error('updatePresence:', e.message); }
+  } catch (e) { logError('updatePresence:', e.message); }
 }
 
 // ---------- annonce automatique de nouvelle version ----------
@@ -175,7 +198,7 @@ async function postPatchNote(channelId, versionName, lines) {
 
 async function checkForNewVersion() {
   if (!process.env.GAME_URL) {
-    console.error('checkForNewVersion: variable GAME_URL non configurée — voir .env.example');
+    logError('checkForNewVersion: variable GAME_URL non configurée — voir .env.example');
     return;
   }
   try {
@@ -213,7 +236,7 @@ async function checkForNewVersion() {
     await postPatchNote(process.env.DISCORD_PATCHNOTE_EN_CHANNEL_ID, `${latestVersion}${nameEn ? ' : ' + nameEn : ''}`, enLines);
 
     await setBotState('last_announced_version', latestVersion);
-  } catch (e) { console.error('checkForNewVersion:', e.message); }
+  } catch (e) { logError('checkForNewVersion:', e.message); }
 }
 
 client.login(process.env.DISCORD_TOKEN);

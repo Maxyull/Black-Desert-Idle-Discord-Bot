@@ -28,6 +28,10 @@ services:
         value: "1515449365135888505"
       - key: DISCORD_EN_CHANNEL_ID
         value: "1522411682343813241"
+      - key: DISCORD_HONEYPOT_CHANNEL_ID
+        sync: false
+      - key: DISCORD_LOGS_CHANNEL_ID
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY

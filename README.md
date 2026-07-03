@@ -14,6 +14,8 @@ nombre de joueurs en ligne, liaison de compte Discord ↔ compte du jeu, signale
 - **Réaction auto sur les suggestions des forums communautaires** — quand un joueur crée directement un post (sans `/suggestion`) dans l'un des forums bug+suggestion (FR ou EN) et lui applique un tag dont le nom contient "Suggestion", le bot réagit automatiquement avec 👍 👎 🤷.
 - **Statut du bot** — affiche en continu "X joueur(s) en ligne".
 - **`POST /join-guild`** — endpoint interne appelé par le jeu juste après une connexion "Se connecter avec Discord" : ajoute automatiquement le joueur au serveur Discord via son token OAuth (scope `guilds.join`).
+- **Honeypot anti-spam/raid** — n'importe quel message posté dans le salon piège configuré déclenche une expulsion immédiate de son auteur (+ suppression du message).
+- **Logs Discord** — tous les logs du bot (infos + erreurs) sont relayés dans un salon dédié en plus de la console/des logs Render.
 
 ## 1. Créer l'application Discord
 
@@ -22,10 +24,12 @@ nombre de joueurs en ligne, liaison de compte Discord ↔ compte du jeu, signale
 3. Toujours dans **Bot**, décoche "Public Bot" si tu veux garder le contrôle de qui l'ajoute.
 4. Toujours dans **Bot**, active **"Message Content Intent"** (nécessaire pour le relais de traduction — sans ça le bot reçoit des messages vides).
 5. Onglet **General Information** → copie l'**Application ID** (`DISCORD_CLIENT_ID`).
-6. Onglet **OAuth2 > URL Generator** → coche `bot` + `applications.commands`, permissions minimales (Send Messages, Send Messages in Threads, Create Public Threads, Embed Links, Add Reactions, Manage Threads, **Manage Channels** — tags du forum, **Create Invite** — requis par Discord pour `PUT /guilds/{id}/members/{id}`, l'ajout auto au serveur) → ouvre l'URL générée pour ajouter le bot à ton serveur.
+6. Onglet **OAuth2 > URL Generator** → coche `bot` + `applications.commands`, permissions minimales (Send Messages, Send Messages in Threads, Create Public Threads, Embed Links, Add Reactions, Manage Threads, **Manage Channels** — tags du forum, **Create Invite** — requis par Discord pour `PUT /guilds/{id}/members/{id}`, l'ajout auto au serveur, **Manage Messages** — supprime le message piégé, **Kick Members** — honeypot) → ouvre l'URL générée pour ajouter le bot à ton serveur.
 7. En mode développeur Discord (Paramètres > Avancés > Mode développeur), clic droit sur ton serveur → "Copier l'identifiant" (`DISCORD_GUILD_ID`, optionnel mais recommandé pour un déploiement instantané des commandes).
 8. Crée (ou réutilise) un salon **bugs** classique (`DISCORD_BUG_CHANNEL_ID`) et un salon **suggestions** de type **Forum** (`DISCORD_SUGGESTIONS_CHANNEL_ID` — le bot crée lui-même les 3 tags "🗳️ En attente"/"✅ Accepté"/"❌ Refusé" au premier `/suggestion` s'ils n'existent pas encore). Les salons pour les annonces de version (FR/EN) et le relais de traduction (FR/EN) sont déjà connus et pré-remplis dans `.env.example`.
 9. Pour les **forums communautaires combinés bug+suggestion** (`DISCORD_COMMUNITY_FORUM_FR_ID`/`DISCORD_COMMUNITY_FORUM_EN_ID`, déjà pré-remplis) : dans les paramètres de chaque salon Forum, crée un tag dont le nom contient le mot **"Suggestion"** (ex: "💡 Suggestion") — c'est ce nom que le bot recherche pour savoir sur quels posts réagir automatiquement. Le nom exact du tag "Bug" n'a pas d'importance, le bot l'ignore.
+10. Pour le **honeypot** (`DISCORD_HONEYPOT_CHANNEL_ID`) : crée un salon texte au nom accrocheur pour un raider/bot spammeur (ex: `#annonces-vip`, `#gratuit`, `#nitro-gratuit`...), puis **masque-le du rôle @everyone normal** dans ses permissions de salon — il ne doit être visible que par les rôles "non vérifié"/nouveaux membres si ton serveur en a un, ou par personne de légitime. Le rôle du bot doit être placé au-dessus du rôle des membres pour pouvoir les expulser (sinon le kick échoue silencieusement, juste loggé côté bot).
+11. Pour les **logs** (`DISCORD_LOGS_CHANNEL_ID`) : crée un salon texte réservé au staff (le bot y écrit toutes ses infos/erreurs, pas besoin qu'il soit public).
 
 ## 2. Récupérer la clé Supabase
 
