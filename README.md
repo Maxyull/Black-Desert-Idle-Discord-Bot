@@ -10,7 +10,8 @@ nombre de joueurs en ligne, liaison de compte Discord ↔ compte du jeu, signale
 - **`/joueurs-en-ligne`** — nombre de joueurs actuellement connectés (invités inclus).
 - **`/bug <description>`** — poste un signalement de bug dans un salon dédié.
 - **`/suggestion <texte>`** — crée un post dans un **salon Forum** dédié, avec vote par réaction (👍/👎) et des boutons "✅ Accepter"/"❌ Refuser" réservés au staff (permission Discord "Gérer le serveur") qui appliquent automatiquement le tag correspondant (🗳️ En attente / ✅ Accepté / ❌ Refusé, créés automatiquement si absents).
-- **Relais de traduction** — tout message posté dans le salon FR configuré est automatiquement retranscrit en anglais dans le salon EN configuré.
+- **Relais de traduction** — tout message posté dans le salon FR configuré est automatiquement retranscrit en anglais dans le salon EN configuré, avec 🇬🇧 et un lien direct vers le message d'origine.
+- **Réaction auto sur les suggestions des forums communautaires** — quand un joueur crée directement un post (sans `/suggestion`) dans l'un des forums bug+suggestion (FR ou EN) et lui applique un tag dont le nom contient "Suggestion", le bot réagit automatiquement avec 👍 👎 🤷.
 - **Statut du bot** — affiche en continu "X joueur(s) en ligne".
 - **`POST /join-guild`** — endpoint interne appelé par le jeu juste après une connexion "Se connecter avec Discord" : ajoute automatiquement le joueur au serveur Discord via son token OAuth (scope `guilds.join`).
 
@@ -24,6 +25,7 @@ nombre de joueurs en ligne, liaison de compte Discord ↔ compte du jeu, signale
 6. Onglet **OAuth2 > URL Generator** → coche `bot` + `applications.commands`, permissions minimales (Send Messages, Send Messages in Threads, Create Public Threads, Embed Links, Add Reactions, Manage Threads, **Manage Channels** — tags du forum, **Create Invite** — requis par Discord pour `PUT /guilds/{id}/members/{id}`, l'ajout auto au serveur) → ouvre l'URL générée pour ajouter le bot à ton serveur.
 7. En mode développeur Discord (Paramètres > Avancés > Mode développeur), clic droit sur ton serveur → "Copier l'identifiant" (`DISCORD_GUILD_ID`, optionnel mais recommandé pour un déploiement instantané des commandes).
 8. Crée (ou réutilise) un salon **bugs** classique (`DISCORD_BUG_CHANNEL_ID`) et un salon **suggestions** de type **Forum** (`DISCORD_SUGGESTIONS_CHANNEL_ID` — le bot crée lui-même les 3 tags "🗳️ En attente"/"✅ Accepté"/"❌ Refusé" au premier `/suggestion` s'ils n'existent pas encore). Les salons pour les annonces de version (FR/EN) et le relais de traduction (FR/EN) sont déjà connus et pré-remplis dans `.env.example`.
+9. Pour les **forums communautaires combinés bug+suggestion** (`DISCORD_COMMUNITY_FORUM_FR_ID`/`DISCORD_COMMUNITY_FORUM_EN_ID`, déjà pré-remplis) : dans les paramètres de chaque salon Forum, crée un tag dont le nom contient le mot **"Suggestion"** (ex: "💡 Suggestion") — c'est ce nom que le bot recherche pour savoir sur quels posts réagir automatiquement. Le nom exact du tag "Bug" n'a pas d'importance, le bot l'ignore.
 
 ## 2. Récupérer la clé Supabase
 

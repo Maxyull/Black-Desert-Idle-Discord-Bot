@@ -20,6 +20,10 @@ services:
         sync: false
       - key: DISCORD_SUGGESTIONS_CHANNEL_ID
         sync: false
+      - key: DISCORD_COMMUNITY_FORUM_FR_ID
+        value: "1522414587910160404"
+      - key: DISCORD_COMMUNITY_FORUM_EN_ID
+        value: "1522414464811532428"
       - key: DISCORD_FR_CHANNEL_ID
         value: "1515449365135888505"
       - key: DISCORD_EN_CHANNEL_ID

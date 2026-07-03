@@ -84,6 +84,30 @@ async function handleSuggestionButton(interaction) {
   }
 }
 
+// ---------- réaction auto sur les posts "Suggestion" créés directement dans les forums
+// communautaires bug+suggestion (FR et EN) — pas besoin de passer par /suggestion ----------
+client.on(Events.ThreadCreate, async thread => {
+  try {
+    // surveille le tag "Suggestion" sur les 2 forums communautaires (FR + EN) — chacun a
+    // ses propres tags, vérifiés indépendamment via thread.parent.availableTags
+    const forumIds = [process.env.DISCORD_COMMUNITY_FORUM_FR_ID, process.env.DISCORD_COMMUNITY_FORUM_EN_ID].filter(Boolean);
+    if (!forumIds.includes(thread.parentId)) return;
+
+    const parentTags = thread.parent?.availableTags || [];
+    const isSuggestion = (thread.appliedTags || []).some(tagId => {
+      const tag = parentTags.find(t => t.id === tagId);
+      return tag && /suggestion/i.test(tag.name);
+    });
+    if (!isSuggestion) return;
+
+    const starter = await thread.fetchStarterMessage().catch(() => null);
+    if (!starter) return;
+    await starter.react('👍');
+    await starter.react('👎');
+    await starter.react('🤷');
+  } catch (e) { console.error('réaction auto suggestion (forum communautaire):', e.message); }
+});
+
 // ---------- relais de traduction FR -> EN entre deux salons ----------
 if (!process.env.DISCORD_FR_CHANNEL_ID || !process.env.DISCORD_EN_CHANNEL_ID) {
   console.error('Relais de traduction désactivé : DISCORD_FR_CHANNEL_ID et/ou DISCORD_EN_CHANNEL_ID non configurées — voir .env.example');
@@ -100,10 +124,13 @@ client.on(Events.MessageCreate, async message => {
   const targetChannel = await client.channels.fetch(process.env.DISCORD_EN_CHANNEL_ID).catch(() => null);
   if (!targetChannel) { console.error('Relais de traduction : salon EN introuvable (DISCORD_EN_CHANNEL_ID incorrect ?)'); return; }
 
+  // note : un footer d'embed Discord ne peut pas contenir de lien cliquable — le lien
+  // direct vers le message d'origine est donc mis en description (Discord l'auto-affiche
+  // en lien cliquable), le footer garde juste le drapeau + la mention du salon source.
   const embed = new EmbedBuilder()
     .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL() })
-    .setDescription(translated)
-    .setFooter({ text: '🌐 Traduit automatiquement depuis #' + (message.channel.name || 'fr') })
+    .setDescription(translated + `\n\n🔗 [Voir le message original](${message.url})`)
+    .setFooter({ text: `🇬🇧 Traduit automatiquement depuis #${message.channel.name || 'fr'}` })
     .setColor(0x9cc9e8)
     .setTimestamp(message.createdAt);
 
